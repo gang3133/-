@@ -1,0 +1,11 @@
+E:\졸작\PID통신 model\PID통신 model\obj\Debug\PID통신 model.csproj.AssemblyReference.cache
+E:\졸작\PID통신 model\PID통신 model\obj\Debug\PID통신 model.csproj.SuggestedBindingRedirects.cache
+E:\졸작\PID통신 model\PID통신 model\obj\Debug\PID통신_model.Form1.resources
+E:\졸작\PID통신 model\PID통신 model\obj\Debug\PID통신_model.Properties.Resources.resources
+E:\졸작\PID통신 model\PID통신 model\obj\Debug\PID통신 model.csproj.GenerateResource.cache
+E:\졸작\PID통신 model\PID통신 model\obj\Debug\PID통신 model.csproj.CoreCompileInputs.cache
+E:\졸작\PID통신 model\PID통신 model\bin\Debug\PID통신 model.exe.config
+E:\졸작\PID통신 model\PID통신 model\bin\Debug\PID통신 model.exe
+E:\졸작\PID통신 model\PID통신 model\bin\Debug\PID통신 model.pdb
+E:\졸작\PID통신 model\PID통신 model\obj\Debug\PID통신 model.exe
+E:\졸작\PID통신 model\PID통신 model\obj\Debug\PID통신 model.pdb
