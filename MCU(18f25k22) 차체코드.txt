@@ -1,0 +1,1027 @@
+#include <18f25k22.h>
+#include <stdlib.h>
+
+#Fuses INTRC_IO, NOMCLR, NOWDT, NOPLLEN, CCP2C1, NOPROTECT, TIMER3C0
+#use delay(internal = 16M)
+
+#byte PORTA = 0XF80
+#byte PORTB = 0XF81
+#bit Buzzer = PORTB.6
+#byte PORTC = 0xF82
+#byte TRISA = 0XF92
+#byte TRISB = 0XF93
+#byte TRISC = 0xF94
+#bit TC0 = TRISC.0
+#bit TC2 = TRISC.2
+#byte INTCON = 0xFF2
+#bit GIEGIEH = INTCON.7
+#bit PEIE = INTCON.6
+#byte INTCON2 = 0XFF1
+
+//TIMER4 USE
+#byte RCON = 0XFD0
+#byte T4CON = 0XF51
+#bit TMR4_ON = T4CON.2
+#byte PR4 = 0XF52
+#byte TMR4 = 0XF53
+#byte PIE5 = 0XF7D
+#byte PIR5 = 0XF7E
+#bit TMR6IF = PIR5.2
+#bit TMR4IF = PIR5.0
+#bit TMR4_E = PIE5.0
+
+
+//TIMER3 USE
+#byte PIE2 = 0xFA0
+#bit TMR3IE = PIE2.1
+#byte PIE3 = 0xFA3
+#bit TMR3GIE = PIE3.1
+#byte PIR2 = 0xFA1
+#bit TMR3IF = PIR2.1
+#byte PIR3 = 0xFA4
+#bit TMR3GIF = PIR3.1
+#byte PMD0 = 0xF3F
+#bit TMR3MD = PMD0.2
+#byte T3CON = 0xFB1
+#bit TMR3_ON = T3CON.0
+#byte T3GCON = 0xFB4
+#byte TMR3H = 0xFB3
+#byte TMR3L = 0xFB2
+
+//TIMER5 USE
+//#byte PIE5 = 0xF7D
+#bit TMR5IE = PIE5.1
+//#byte PIR5 = 0xF7E
+#bit TMR5IF = PIR5.1
+#bit TMR5GIE = PIE3.2
+#bit TMR5GIF = PIR3.2
+#bit TMR5MD = PMD0.4
+#byte T5GCON = 0xF4D
+#byte T5CON = 0xF4E
+#bit TMR5_ON = T5CON.0
+#byte TMR5H = 0xF50
+#byte TMR5L = 0xF4F
+
+//tongsin
+#byte IPR1 = 0xF9F
+#byte PIE1 = 0xF9D
+#bit RC1IE = PIE1.5
+#byte PIR1 = 0xF9E
+#bit RC1IF = PIR1.5
+#byte BAUDCON1 = 0xFB8
+#byte TXSTA1 = 0xFAC
+#bit TRMT = TXSTA1.1
+#byte RCSTA1 = 0xFAB
+//#byte PMD0 = 0xF3F
+#byte SPBRG1 = 0xFAF
+#byte TXREG1 = 0xFAD
+#byte RCREG1 = 0xFAE
+
+//PWM ccp2
+#byte CCP2CON = 0xF66
+#byte CCPTMRS0 = 0xF49
+//#byte INTCON = 0xFF2
+//#bit GIEGIEH = INTCON.7
+//#bit PEIE = INTCON.6
+//#byte PIE2 = 0xFA0
+//#byte PIR2 = 0xFA1
+//#byte PMD0 = 0xF3F
+#byte PMD1 = 0xF3E
+#byte PR2 = 0xFBB
+#byte T2CON = 0xFBA
+#bit M1_bit0 = CCP2CON.4
+#bit M1_bit1 = CCP2CON.5
+//#bit PWM1 =PORTC.1 /test
+#bit M1_IN1 =PORTC.3
+#bit M1_IN2 =PORTC.4
+#byte TMR2 = 0xFBC
+#byte CCPR2H = 0xF68
+#byte CCPR2L = 0xF67
+
+//PWM ccp5
+#byte CCP5CON = 0xF54
+#byte CCPTMRS1 = 0xF48
+#byte PIE4 = 0xF7A
+#byte PIR4 = 0xF7B
+//#bit PWM2 =PORTA.4 /test
+//#byte PMD1 = 0xF3E
+#byte PR6 = 0xF4B
+#byte T6CON = 0xF4A
+#bit M2_bit0 = CCP5CON.4
+#bit M2_bit1 = CCP5CON.5
+#bit M2_IN1 =PORTA.0
+#bit M2_IN2 =PORTA.1
+#byte TMR6 =  0xF4C
+#byte CCPR5H = 0xF56
+#byte CCPR5L = 0xF55
+
+char txt2[5] = "rpm ";
+char M1[5] = "M1: ";
+char M2[6] = " M2: ";
+char txt0[6] ={};
+char txt1[6] ={};
+char txt[6] ={};
+//counter5
+unsigned int16 TMR5 = 0;
+unsigned int16 TMR5_ = 0;
+unsigned int16 CNT5 = 0;
+//counter3
+unsigned int16 TMR3 = 0;
+unsigned int16 CNT3 = 0;
+
+double RPM1 = 0;
+double RPM2 = 0;
+int16 rpm_receive1 = 0;
+int16 rpm_receive2 = 0;
+unsigned int16 overf4 = 0;
+unsigned int a = 0;
+unsigned int b = 0;
+int c = 0;
+int d = 0;
+unsigned int32 freq1 = 0;
+unsigned int32 freq2 = 0;
+int16 M1_value_duty = 0;
+int16 M2_value_duty = 0;
+double M1_set_duty = 0;
+double M2_set_duty = 0;
+int16 M1_past_set_duty = 0;
+int16 M2_past_set_duty = 0;
+int i1 = 5;
+int i2 = 5;
+
+//tongsin
+char packet[4] = {};
+int send = 0;
+int num_10 = 0;
+int num_1 = 0;
+int send_data = 0;
+int value_cnt = 0;
+//pid
+signed int16 err1 = 0;
+signed int16 err_sum1 = 0;
+signed int16 old_err1 = 0;
+signed int16 err2 = 0;
+signed int16 err_sum2 = 0;
+signed int16 old_err2 = 0;
+double y1 = 0;
+double y2 = 0;
+
+void M1_PID_control();
+void M2_PID_control();
+void PID_procedure(int M, signed int16 *err, double *y, int16 *value_duty);
+
+void PORT_SET()
+{
+   PORTA = 0x00;
+   PORTB = 0x00;
+   PORTC = 0x00;
+   TRISA = 0x00;
+   TRISB = 0x00;
+   TRISC = 0x85;
+}
+
+void Timer4_setting()
+{
+   TMR4 = 0;
+   INTCON = 0B11000000;
+   PIE5 = 0B00000101;
+   //T4CON = 0B00000100;
+   T4CON = 0B00100110;
+   PR4 = 50;
+   //RCON = 0b11111100;
+   //IPR5 = 0b11111011;
+}
+
+void standard_PWM_set()
+{
+
+   TMR2 = 0;
+   TMR6 = 0;
+   GIEGIEH = 1;
+   PEIE = 1;
+   PIE2 = 0b00000000;
+   PIE4 = 0b00000000;
+   T2CON = 0b00000101;
+   T6CON = 0b00000101;
+   PR2 = 49;
+   PR6 = 49;
+   CCP2CON = 0b00001100;
+   CCP5CON = 0b00001100;
+   CCPTMRS0 = 0b00000000;
+   CCPTMRS1 = 0b00000000;
+   //PIE1 = 0x00; 
+   CCPR2L = 0b00000000;
+   CCPR5L = 0b00000000;
+}
+void Counter3_set()
+{
+   GIEGIEH = 1;
+   PEIE = 1;
+   TMR3IE = 1;
+   TMR3GIE = 1;
+   T3CON = 0b10000011;
+   TMR3L = 0x00;
+   TMR3H = 0x00;
+   TMR3 = ((int16)TMR5H << 8) + TMR5L;
+}
+void Counter5_set()
+{
+   GIEGIEH = 1;
+   PEIE = 1;
+   TMR5IE = 1;
+   TMR5GIE = 1;
+   T5CON = 0b10000011;
+   TMR5L = 0x00;
+   TMR5H = 0x00;
+   TMR5 = ((int16)TMR5H << 8) + TMR5L;
+   //TMR5 = 64535;
+}
+void Transmit_Recive_settings()
+{
+   BAUDCON1 = 0b00000000;
+   RCSTA1 = 0b10010000;
+   TXSTA1 = 0b00100010;
+   PIE1 = 0b01100000;
+   //IPR1 = 0b11111111;
+   //INTCON = 0b11000000;
+   SPBRG1 = 25;
+   PORTC = 0x00;
+   TRISC = 0x85;
+}
+void send_string(unsigned char *str)
+{
+   while(*str!= 0)
+   {
+      TXREG1 = *str;
+      delay_ms(1);
+      str++;
+   }
+}
+
+void count_pulse_below65536()
+{
+      TMR3_ON = 0;
+      TMR4_ON = 0;
+      TMR5_ON = 0;
+      RPM1 = (1.13 * TMR3) / (1.9);//(60 * TMR3) / (38.0 * 53)
+      RPM2 = (1.13  * TMR5) / (1.9);
+      M1_PID_control();
+      M2_PID_control();
+      PID_procedure(1, &err1, &y1, &M1_value_duty);
+      PID_procedure(2, &err2, &y2, &M2_value_duty);
+      sprintf(txt0, "%4.1lf", RPM1);
+      sprintf(txt1, "%4.1lf", RPM2);
+//!      sprintf(txt0, "%lu", TMR3);
+//!      sprintf(txt1, "%lu", TMR5);
+      send_string(M1);
+      send_string(txt0);
+      send_string(txt2);
+      send_string(M2);
+      send_string(txt1);
+      send_string(txt2);
+      delay_ms(1);
+      TXREG1 = 0x0A;
+      memset(txt0, 0, sizeof(txt0));
+      memset(txt1, 0, sizeof(txt1));
+
+      overf4 = 0;
+      CNT3 = 0;
+      CNT5 = 0;
+      //TMR5_= 0;
+      TMR3 = 0;
+      TMR3L = 0x00;
+      TMR3H = 0x00;
+      TMR5 = 0;
+      TMR5L = 0x00;
+      TMR5H = 0x00;
+      TC0 = 1;
+      TC2 = 1;
+      TMR3_ON = 1;
+      TMR4_ON = 1;
+      TMR5_ON = 1;
+      b = 0;
+      return;
+}
+
+unsigned int32 count_pulse_more65536(void)
+{
+      TMR3_ON = 0;
+      TMR4_ON = 0;
+      TMR5_ON = 0;
+      
+      freq1 = ((int32)CNT3 * 65535) + TMR3;
+      TMR3H = 0;
+      TMR3L = 0;
+      freq2 = ((int32)CNT5 * 65535) + TMR5;
+      TMR5H = 0;
+      TMR5L = 0;
+      return freq1, freq2;
+}
+         
+         
+void more65536(int32 data)
+{
+      char temp[10];
+      
+      temp[0] = ((data%1000000)/100000)+ 48;
+      temp[1] = ((data%100000)/10000)+ 48;
+      temp[2] = ((data%10000)/1000)+ 48;
+      temp[3] = ((data%1000)/100)+ 48;
+      temp[4] = ((data%100)/10)+ 48;
+      temp[5] = ((data%10)/1)+ 48;
+      
+      send_string(temp);
+      send_string(txt2);
+      delay_us(10);
+      TXREG1 = 0x0A;
+      memset(temp, 0, sizeof(temp));
+      
+      freq1 = 0;
+      freq2 = 0;
+      CNT3 = 0;
+      CNT5 = 0;
+      //TMR5_= 0;
+      TMR3 = 0;
+      TMR5 = 0;
+      overf4 = 0;
+      TMR3L = 0x00;
+      TMR3H = 0x00;
+      TMR5L = 0x00;
+      TMR5H = 0x00;
+      TC0 = 1;
+      TC2 = 1;
+      TMR3_ON = 1;
+      TMR4_ON = 1;
+      TMR5_ON = 1;
+      a = 0;
+}
+
+void M1_PID_control()
+{
+   float32 Kp = 0.005;
+   float32 Ki = 0.9;
+   float32 Kd = 0.01;
+   float32 u = 0;
+   err1 = rpm_receive1 - RPM1; 
+   err_sum1 += err1;
+   u = (Kp*err1) + (ki*err_sum1) + (kd*(err1-old_err1));
+   old_err1 = err1;
+   u = abs(u);
+   if(u> 10) u =10;
+   if(u < 0.1) u = 0.1;
+   
+    y1 = u * 200 / 1024;
+}
+void M2_PID_control()
+{
+   float32 Kp = 0.005;
+   float32 Ki = 0.9;
+   float32 Kd = 0.01;
+   float32 u = 0;
+   err2 = rpm_receive2 - RPM2; 
+   err_sum2 += err2;
+   u = (Kp*err2) + (ki*err_sum2) + (kd*(err2-old_err2));
+   old_err2 = err2;
+   u = abs(u);
+   if(u > 10) u =10;
+   if(u < 0.1) u = 0.1;
+   
+    y2 = u * 200 / 1024;
+}
+
+void Motor_cw(int M, int *ii, double *set_duty, int16 *value_duty, int16 *past_set_duty )
+{
+   if(M == 1)
+   {
+      M1_IN2 = 1;
+      M1_IN1 = 0;
+   }
+   else if(M == 2)
+   {
+      M2_IN2 = 1;
+      M2_IN1 = 0;
+   }
+   else{}
+   if(*ii == 0)
+   {
+      for(*ii = 0; *ii < *set_duty; (*ii)++)
+      { 
+         *value_duty = *ii;
+         //delay_us(1);
+         if(M == 1)
+         {
+            M1_bit0 = *value_duty & 1;
+            M1_bit1 = *value_duty & 2;
+            CCPR2L = *value_duty >> 2; 
+         }
+         else if(M == 2)
+         {
+            M2_bit0 = *value_duty & 1;
+            M2_bit1 = *value_duty & 2;
+            CCPR5L = *value_duty >> 2; 
+         }
+         else{}  
+         *past_set_duty = *set_duty;
+      }
+   }
+   else if(*past_set_duty > *set_duty)
+   {
+      for(*ii = *past_set_duty; *ii > *set_duty; (*ii)--)
+      { 
+         *value_duty = *ii;
+         //delay_us(1);
+         if(M == 1)
+         {
+            M1_bit0 = *value_duty & 1;
+            M1_bit1 = *value_duty & 2;
+            CCPR2L = *value_duty >> 2; 
+         }
+         else if(M == 2)
+         {
+            M2_bit0 = *value_duty & 1;
+            M2_bit1 = *value_duty & 2;
+            CCPR5L = *value_duty >> 2; 
+         }
+         else{} 
+         *past_set_duty = *set_duty;
+      }
+      
+   }
+   else if(*past_set_duty < *set_duty)
+   {
+      for(*ii = *past_set_duty; *ii < *set_duty; (*ii)++)
+      { 
+         *value_duty = *ii;
+         //delay_us(1);
+         if(M == 1)
+         {
+            M1_bit0 = *value_duty & 1;
+            M1_bit1 = *value_duty & 2;
+            CCPR2L = *value_duty >> 2; 
+         }
+         else if(M == 2)
+         {
+            M2_bit0 = *value_duty & 1;
+            M2_bit1 = *value_duty & 2;
+            CCPR5L = *value_duty >> 2; 
+         }
+         else{} 
+         *past_set_duty = *set_duty;
+      }
+   }
+}
+void Motor_ccw(int M, int *ii, double *set_duty, int16 *value_duty, int16 *past_set_duty )
+{
+    if(M == 1)
+    {
+       M1_IN2 = 0;
+       M1_IN1 = 1;
+    }
+    else if(M == 2)
+    {
+       M2_IN2 = 0;
+       M2_IN1 = 1;
+    }
+    else{}
+    if(*ii == 0)
+    {
+      for(*ii = 0; *ii < *set_duty; (*ii)++)
+      { 
+         *value_duty = *ii;
+         //delay_us(1);
+         if(M == 1)
+         {
+            M1_bit0 = *value_duty & 1;
+            M1_bit1 = *value_duty & 2;
+            CCPR2L = *value_duty >> 2; 
+         }
+         else if(M == 2)
+         {
+            M2_bit0 = *value_duty & 1;
+            M2_bit1 = *value_duty & 2;
+            CCPR5L = *value_duty >> 2; 
+         }
+         else{}  
+         *past_set_duty = *set_duty;
+      }
+   }
+   else if(*past_set_duty > *set_duty)
+   {
+     
+      for(*ii = *past_set_duty; *ii > *set_duty; (*ii)--)
+      { 
+         *value_duty = *ii;
+         //delay_us(1);
+         if(M == 1)
+         {
+            M1_bit0 = *value_duty & 1;
+            M1_bit1 = *value_duty & 2;
+            CCPR2L = *value_duty >> 2; 
+         }
+         else if(M == 2)
+         {
+            M2_bit0 = *value_duty & 1;
+            M2_bit1 = *value_duty & 2;
+            CCPR5L = *value_duty >> 2; 
+         }
+         else{}  
+         *past_set_duty = *set_duty;
+      }
+      
+   }
+   else if(*past_set_duty < *set_duty)
+   {
+      for(*ii = *past_set_duty; *ii < *set_duty; (*ii)++)
+      { 
+         *value_duty = *ii;
+         //delay_us(1);
+         if(M == 1)
+         {
+            M1_bit0 = *value_duty & 1;
+            M1_bit1 = *value_duty & 2;
+            CCPR2L = *value_duty >> 2; 
+         }
+         else if(M == 2)
+         {
+            M2_bit0 = *value_duty & 1;
+            M2_bit1 = *value_duty & 2;
+            CCPR5L = *value_duty >> 2; 
+         }
+         else{}
+         *past_set_duty = *set_duty;
+      }
+   }
+   else{}
+   
+} 
+void Motor_stop(int M)
+{
+   if(M == 1)
+   {
+      M1_IN1 = 1;
+      M1_IN2 = 0;
+      M2_IN1 = 1;
+      M2_IN2 = 0;
+   }
+   else if(M == 2)
+   {
+      M1_IN1 = 0;
+      M1_IN2 = 1;
+      M2_IN1 = 0;
+      M2_IN2 = 1;
+   }
+   else{}
+   while(M1_past_set_duty > 0 || M2_past_set_duty > 0) 
+   {
+      if(M1_past_set_duty > 0)  M1_past_set_duty--; 
+      else M1_past_set_duty = 0;
+      if(M2_past_set_duty > 0) M2_past_set_duty--;
+      else M2_past_set_duty = 0;
+      delay_us(10);
+      M1_bit0 = M1_past_set_duty & 1;
+      M1_bit1 = M1_past_set_duty & 2;
+      CCPR2L = M1_past_set_duty >> 2; 
+     
+      M2_bit0 = M2_past_set_duty & 1;
+      M2_bit1 = M2_past_set_duty & 2;
+      CCPR5L = M2_past_set_duty >> 2; 
+      
+   }
+   M1_past_set_duty = 0;
+   M2_past_set_duty = 0;
+   M1_IN1 = 0;
+   M1_IN2 = 0;
+   M2_IN1 = 0;
+   M2_IN2 = 0;
+   TMR3 = 0;
+   TMR5 = 0;
+}
+void PID_procedure(int M, signed int16 *err, double *y, int16 *value_duty)
+{
+    if(*err < 0)
+    {
+       *value_duty = *value_duty - *y;
+       if(M == 1)
+       {
+          M1_bit0 = *value_duty & 1;
+          M1_bit1 = *value_duty & 2;
+          CCPR2L = *value_duty >> 2; 
+       }
+       else if(M == 2)
+       {
+          M2_bit0 = *value_duty & 1;
+          M2_bit1 = *value_duty & 2;
+          CCPR5L = *value_duty >> 2; 
+       }
+       else{}
+    }
+    else if(*err > 0)
+    {
+       *value_duty = *value_duty + *y;
+       if(M == 1)
+       {
+          M1_bit0 = *value_duty & 1;
+          M1_bit1 = *value_duty & 2;
+          CCPR2L = *value_duty >> 2; 
+       }
+       else if(M == 2)
+       {
+          M2_bit0 = *value_duty & 1;
+          M2_bit1 = *value_duty & 2;
+          CCPR5L = *value_duty >> 2; 
+       }
+       else{}
+    }
+    else
+    {
+       *value_duty = *value_duty;
+       if(M == 1)
+       {
+          M1_bit0 = *value_duty & 1;
+          M1_bit1 = *value_duty & 2;
+          CCPR2L = *value_duty >> 2; 
+       }
+       else if(M == 2)
+       {
+          M2_bit0 = *value_duty & 1;
+          M2_bit1 = *value_duty & 2;
+          CCPR5L = *value_duty >> 2; 
+       }
+       else{}
+    }
+}
+void RPM_to_duty(double *set_duty, int16 *rpm_receive)
+{
+   *set_duty = ((double)*rpm_receive / 235.0 * 53.0) / 24.0 * 200.0;
+}
+
+void send_1()
+{
+   if(send == 1)
+   {
+      send_data = (num_10 - '0')*10+(num_1 - '0');
+      if(send_data == 1)
+      {
+         c = 1;
+         d = 0;
+      }
+      if(send_data == 2)
+      {
+         c = 2;
+         d = 0;
+      }
+      if(send_data == 3)
+      {
+         c = 3;
+         d = 0;
+      }
+      if(send_data == 4)
+      {
+         c = 4;
+      }
+      if(send_data == 5)
+      {
+         c = 5;
+         d = 0;
+      }
+      if(send_data == 6)
+      {
+         c = 6;
+         d = 0;
+      }
+      if(send_data == 7)
+      {
+         c = 7;
+         d = 0;
+      }
+      if(send_data == 8)
+      {
+         c = 8;
+         d = 0;
+      }
+      if(send_data == 9)
+      {
+         c = 9;
+         d = 0;
+      }
+      if(send_data == 10)
+      {
+         c = 10;
+         d = 0;
+      }
+      if(send_data == 11)
+      {
+         c = 11;
+         d = 0;
+      }
+      if(send_data == 12)
+      {
+         c = 12;
+      }
+      send = 0;
+   }
+
+}
+void communication()
+{
+      if(c == 1) // forward 50RPM
+      {
+         rpm_receive1 = 50;
+         rpm_receive2 = 50;
+         RPM_to_duty(&M1_set_duty, &rpm_receive1);
+         RPM_to_duty(&M2_set_duty, &rpm_receive2);
+//!         sprintf(txt, "%4.1lf", M1_set_duty);
+//!         send_string(txt);
+         Motor_ccw(1, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_ccw(2, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+         Motor_ccw(2, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_ccw(1, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+
+         c = 0;
+      }
+      if(c == 2) // forward 30RPM
+      {
+         rpm_receive1 = 30;
+         rpm_receive2 = 30;
+         RPM_to_duty(&M1_set_duty, &rpm_receive1);
+         RPM_to_duty(&M2_set_duty, &rpm_receive2);
+         Motor_ccw(1, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_ccw(2, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+         Motor_ccw(2, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_ccw(1, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+
+         c = 0;
+      }
+      if(c == 3) // forward 30RPM
+      {
+         rpm_receive1 = 10;
+         rpm_receive2 = 10;
+         RPM_to_duty(&M1_set_duty, &rpm_receive1);
+         RPM_to_duty(&M2_set_duty, &rpm_receive2);
+         Motor_ccw(1, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_ccw(2, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+         Motor_ccw(2, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_ccw(1, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+
+         c = 0;
+      }
+      if(c == 4) // if ccw
+      {
+         
+         rpm_receive1 = 0;
+         rpm_receive2 = 0;
+         Motor_stop(1);
+         err_sum1 = 0;
+         err_sum2 = 0; 
+         M1_value_duty = 0;
+         M2_value_duty = 0;
+         i1 = 0;
+         i1 = 0;
+         d = 4;
+         c = 0;
+      }
+      if(c == 5) //turn right
+      {
+         rpm_receive1 = 15;
+         rpm_receive2 = 15;
+         RPM_to_duty(&M1_set_duty, &rpm_receive1);
+         RPM_to_duty(&M2_set_duty, &rpm_receive2);
+         Motor_cw(1, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_ccw(2, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+         c = 0;
+      }
+      if(c == 6) //turn left
+      {
+         rpm_receive1 = 15;
+         rpm_receive2 = 15;
+         RPM_to_duty(&M1_set_duty, &rpm_receive1);
+         RPM_to_duty(&M2_set_duty, &rpm_receive2);
+         Motor_ccw(1, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_cw(2, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+         c = 0;
+      }
+      if(c == 7) //turn right little
+      {
+         rpm_receive1 = 0;
+         rpm_receive2 = 30;
+         RPM_to_duty(&M1_set_duty, &rpm_receive1);
+         RPM_to_duty(&M2_set_duty, &rpm_receive2);
+         Motor_ccw(1, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_ccw(2, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+         delay_ms(10);
+         rpm_receive1 = 0;
+         rpm_receive2 = 0;
+         Motor_stop(1);
+         err_sum1 = 0;
+         err_sum2 = 0; 
+         M1_value_duty = 0;
+         M2_value_duty = 0;
+         i1 = 0;
+         i1 = 0;
+         d = 4;
+         c = 0;
+      }
+      if(c == 8) //turn right little
+      {
+         rpm_receive1 = 30;
+         rpm_receive2 = 0;
+         RPM_to_duty(&M1_set_duty, &rpm_receive1);
+         RPM_to_duty(&M2_set_duty, &rpm_receive2);
+         Motor_ccw(1, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_ccw(2, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+         delay_ms(10);
+         rpm_receive1 = 0;
+         rpm_receive2 = 0;
+         Motor_stop(1);
+         err_sum1 = 0;
+         err_sum2 = 0; 
+         M1_value_duty = 0;
+         M2_value_duty = 0;
+         i1 = 0;
+         i1 = 0;
+         d = 4;
+         c = 0;
+      }
+      if(c == 9) //reverse 50RPM
+      {
+         rpm_receive1 = 50;
+         rpm_receive2 = 50;
+         RPM_to_duty(&M1_set_duty, &rpm_receive1);
+         RPM_to_duty(&M2_set_duty, &rpm_receive2);
+         Motor_cw(1, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_cw(2, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+         c = 0;
+      }
+      if(c == 10) //reverse 30RPM
+      {
+         rpm_receive1 = 30;
+         rpm_receive2 = 30;
+         RPM_to_duty(&M1_set_duty, &rpm_receive1);
+         RPM_to_duty(&M2_set_duty, &rpm_receive2);
+         Motor_cw(1, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_cw(2, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+         c = 0;
+      }
+      if(c == 11) //reverse 10RPM
+      {
+         rpm_receive1 = 10;
+         rpm_receive2 = 10;
+         RPM_to_duty(&M1_set_duty, &rpm_receive1);
+         RPM_to_duty(&M2_set_duty, &rpm_receive2);
+         Motor_cw(1, &i1, &M1_set_duty, &M1_value_duty, &M1_past_set_duty);
+         Motor_cw(2, &i2, &M2_set_duty, &M2_value_duty, &M2_past_set_duty);
+         c = 0;
+      }
+      if(c == 12) //if cw
+      {
+        
+         rpm_receive1 = 0;
+         rpm_receive2 = 0;
+         Motor_stop(2);
+         err_sum1 = 0;
+         err_sum2 = 0;
+         M1_value_duty = 0;
+         M2_value_duty = 0;
+         i1 = 0;
+         i1 = 0;
+         d = 12;
+         c = 0;
+      }
+      
+      if(d == 4)
+      {
+         if(TMR3 == 1 || TMR5 == 1) Motor_stop(1);
+         if(TMR3 == 1 || TMR5 == 1) Motor_stop(1);
+      }
+      if(d == 12)
+      {
+         if(TMR3 == 1 || TMR5 == 1) Motor_stop(2);
+         if(TMR3 == 1 || TMR5 == 1) Motor_stop(2);
+      }
+
+}
+
+void main() 
+{ 
+   PORT_SET();
+   Timer4_setting();
+   Counter3_set();
+   Counter5_set();
+   standard_PWM_set();
+   Transmit_Recive_settings();
+   while(true)
+   {
+      if(a == 1 && b == 0) {count_pulse_more65536(); more65536(count_pulse_more65536());}
+      if(b == 1 && a == 0) count_pulse_below65536();
+      send_1();
+      communication();   
+      
+      
+   }
+}
+
+# INT_TIMER2
+void TIMER2_ISR()
+{  
+}
+
+# INT_TIMER3
+void TIMER3_ISR()
+{  
+    CNT3++;
+    TMR3L = 0x00;
+    TMR3H = 0x00;
+}
+
+#INT_TIMER4
+void TIMER4_ISR()
+{ 
+    overf4++; 
+    if(overf4 >= 5)
+    {
+       if(CNT5 >= 1 && CNT3 >= 1) 
+       {
+         TC2 = 0;
+         TC0 = 0;
+         a = 1;
+         TMR5 = ((unsigned int16)TMR5H << 8) | TMR5L;
+         TMR5H = 0;
+         TMR5L = 0;
+         TMR3 = ((unsigned int16)TMR3H << 8) | TMR3L;         
+         TMR3H = 0;
+         TMR3L = 0;
+       }
+       else
+       {
+         TC2 = 0;
+         TC0 = 0;
+         b = 1;
+         TMR5 = ((unsigned int16)TMR5H << 8) | TMR5L;
+         TMR5H = 0;
+         TMR5L = 0;
+         TMR3 = ((unsigned int16)TMR3H << 8) | TMR3L;         
+         TMR3H = 0;
+         TMR3L = 0;
+       }
+    }
+    TMR4IF = 0; 
+}
+
+
+# INT_TIMER5
+void TIMER5_ISR()
+{  
+    CNT5++;
+    TMR5L = 0x00;
+    TMR5H = 0x00;
+    
+}
+
+# INT_TIMER6
+void TIMER6_ISR()
+{  
+}
+
+#INT_RDA
+void RDA()
+{
+   TXREG1 = RCREG1;
+   value_cnt++;  
+   if(value_cnt == 1)
+   {
+      packet[0] = RCREG1;
+      num_10 = packet[0];
+      RC1IF = 0;
+   }
+   if(value_cnt == 2)
+   {
+      packet[1] = RCREG1;
+      num_1 = packet[1];
+      RC1IF = 0;
+   }
+   if(value_cnt == 3)
+   {
+      packet[2] = RCREG1;
+      value_cnt = 0;
+      if(packet[2] == 0x45)
+      {
+            send = 1;
+            TMR4_ON = 1;
+            TMR3_ON = 1;
+            TMR5_ON = 1;
+            //memset(packet, 0, sizeof(packet));
+      }
+      else if(packet[2] != 0x45)
+      {
+         memset(packet, 0, sizeof(packet));
+      }
+      else{}
+      RC1IF = 0;
+   }
+   if(packet[0] != 0x45 && packet[1] != 0x45 && packet[2] != 0x45)
+   {
+      memset(packet, 0, sizeof(packet));
+   }
+   
+
+}

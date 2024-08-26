@@ -1,0 +1,862 @@
+#include<18f25K22.h>
+#Fuses INTRC_IO, NOMCLR, NOWDT, NOPLLEN
+#use delay(internal = 16M)
+
+#byte PORTA = 0XF80
+#bit ASTEP_A = PORTA.0
+#bit ASTEP_A_ = PORTA.1
+#bit ASTEP_B = PORTA.2
+#bit ASTEP_B_ = PORTA.3
+#byte PORTB = 0XF81
+#bit BSTEP_A = PORTB.0
+#bit BSTEP_A_ = PORTB.1
+#bit BSTEP_B = PORTB.2
+#bit BSTEP_B_ = PORTB.3
+#byte PORTC = 0xF82
+#bit CSTEP_A = PORTA.5
+#bit CSTEP_A_ = PORTA.6
+#bit CSTEP_B = PORTB.5
+#bit CSTEP_B_ = PORTB.6
+#bit Servo_PWM = PORTC.0
+#byte TRISA = 0XF92
+#byte TRISB = 0XF93
+#byte TRISC = 0xF94
+#byte INTCON = 0XFF2
+#byte INTCON2 = 0XFF1
+
+//TIMER4 USE
+#byte T4CON = 0XF51
+#byte PR4 = 0XF52
+#byte TMR4 = 0XF53
+#byte PIE5 = 0XF7D
+
+//tongsin
+#byte IPR1 = 0xF9F
+#byte PIE1 = 0xF9D
+#bit RC1IE = PIE1.5
+#byte PIR1 = 0xF9E
+#bit RC1IF = PIR1.5
+#byte BAUDCON1 = 0xFB8
+#byte TXSTA1 = 0xFAC
+#bit TRMT = TXSTA1.1
+#byte RCSTA1 = 0xFAB
+//#byte PMD0 = 0xF3F
+#byte SPBRG1 = 0xFAF
+#byte TXREG1 = 0xFAD
+#byte RCREG1 = 0xFAE
+
+int a = 0;
+int A_DIR = 0;
+int sequence_A = 0; 
+int B_DIR = 0;
+int sequence_B = 0; 
+int C_DIR = 0;
+int sequence_C = 0; 
+int16 aa = 0;
+int16 bb = 0;
+int16 cc = 0;
+double a_d = 0;
+double b_d = 0;
+double c_d = 0;
+int16 A_degree = 0;
+int16 B_degree = 0;
+int16 C_degree = 0;
+
+char packet[18] = {};
+int value_cnt = 0;
+int16 A_num_1000 = 0;
+int16 A_num_100 = 0;
+int16 A_num_10 = 0;
+int16 A_num_1 = 0;
+int16 B_num_1000 = 0;
+int16 B_num_100 = 0;
+int16 B_num_10 = 0;
+int16 B_num_1 = 0;
+int16 C_num_1000 = 0;
+int16 C_num_100 = 0;
+int16 C_num_10 = 0;
+int16 C_num_1 = 0;
+int send = 0;
+int servo = 0;
+char send_err[6] = "error";
+int16 send_error = 0;
+
+int checksum_check = 0;
+
+int servo_cnt = 0;
+
+void Transmit_Recive_settings()
+{
+   BAUDCON1 = 0b00000000;
+   RCSTA1 = 0b10010000;
+   TXSTA1 = 0b00100010;
+   PIE1 = 0b01100000;
+   //IPR1 = 0b11111111;
+   //INTCON = 0b11000000;
+   SPBRG1 = 25;
+   PORTC = 0x00;
+   TRISC = 0x80;
+}
+void send_string(unsigned char *str)
+{
+   while(*str!= 0)
+   {
+      TXREG1 = *str;
+      delay_ms(10);
+      str++;
+   }
+}
+
+void A_CW()
+{
+  if(sequence_A == 0)
+   {
+      ASTEP_A = 1;
+      ASTEP_A_ = 0;
+      ASTEP_B = 0;
+      ASTEP_B_ = 0;
+      sequence_A = 1;
+   }
+   else if(sequence_A == 1)
+   {
+      ASTEP_A = 1;
+      ASTEP_A_ = 0;
+      ASTEP_B = 1;
+      ASTEP_B_ = 0;
+      sequence_A = 2;
+   }
+   else if(sequence_A == 2)
+   {
+      ASTEP_A = 0;
+      ASTEP_A_ = 0;
+      ASTEP_B = 1;
+      ASTEP_B_ = 0;
+      sequence_A = 3;
+   }
+   else if(sequence_A == 3)
+   {
+      ASTEP_A = 0;
+      ASTEP_A_ = 1;
+      ASTEP_B = 1;
+      ASTEP_B_ = 0;
+      sequence_A = 4;
+   }
+   else if(sequence_A == 4)
+   {
+      ASTEP_A = 0;
+      ASTEP_A_ = 1;
+      ASTEP_B = 0;
+      ASTEP_B_ = 0;
+      sequence_A = 5;
+   }
+   else if(sequence_A == 5)
+   {
+      ASTEP_A = 0;
+      ASTEP_A_ = 1;
+      ASTEP_B = 0;
+      ASTEP_B_ = 1;
+      sequence_A = 6;
+   }
+   else if(sequence_A == 6)
+   {
+      ASTEP_A = 0;
+      ASTEP_A_ = 0;
+      ASTEP_B = 0;
+      ASTEP_B_ = 1;  
+      sequence_A = 7;
+   }
+   else
+   {
+      ASTEP_A = 1;
+      ASTEP_A_ = 0;
+      ASTEP_B = 0;
+      ASTEP_B_ = 1;
+      sequence_A = 0;
+   }
+
+}
+
+void A_CCW()
+{
+   if(sequence_A == 7)
+   {
+      ASTEP_A = 1;
+      ASTEP_A_ = 0;
+      ASTEP_B = 0;
+      ASTEP_B_ = 1;
+      sequence_A = 6;
+   }
+   else if(sequence_A == 6)
+   {
+      ASTEP_A = 0;
+      ASTEP_A_ = 0;
+      ASTEP_B = 0;
+      ASTEP_B_ = 1;
+      sequence_A = 5;
+   }
+   else if(sequence_A == 5)
+   {
+      ASTEP_A = 0;
+      ASTEP_A_ = 1;
+      ASTEP_B = 0;
+      ASTEP_B_ = 1;
+      sequence_A = 4;
+   }
+   else if(sequence_A == 4)
+   {
+      ASTEP_A = 0;
+      ASTEP_A_ = 1;
+      ASTEP_B = 0;
+      ASTEP_B_ = 0;
+      sequence_A = 3;
+   }
+   else if(sequence_A == 3)
+   {
+      ASTEP_A = 0;
+      ASTEP_A_ = 1;
+      ASTEP_B = 1;
+      ASTEP_B_ = 0;
+      sequence_A = 2;
+   }
+   else if(sequence_A == 2)
+   {
+      ASTEP_A = 0;
+      ASTEP_A_ = 0;
+      ASTEP_B = 1;
+      ASTEP_B_ = 0;
+      sequence_A = 1;
+   }
+   else if(sequence_A == 1)
+   {
+      ASTEP_A = 1;
+      ASTEP_A_ = 0;
+      ASTEP_B = 1;
+      ASTEP_B_ = 0;
+      sequence_A = 0;
+   }
+   else
+   {
+      ASTEP_A = 1;
+      ASTEP_A_ = 0;
+      ASTEP_B = 0;
+      ASTEP_B_ = 0;
+      sequence_A = 7;
+   }      
+}
+
+void B_CW()
+{
+  if(sequence_B == 0)
+   {
+      BSTEP_A = 1;
+      BSTEP_A_ = 0;
+      BSTEP_B = 0;
+      BSTEP_B_ = 0;
+      sequence_B = 1;
+   }
+   else if(sequence_B == 1)
+   {
+      BSTEP_A = 1;
+      BSTEP_A_ = 0;
+      BSTEP_B = 1;
+      BSTEP_B_ = 0;
+      sequence_B = 2;
+   }
+   else if(sequence_B == 2)
+   {
+      BSTEP_A = 0;
+      BSTEP_A_ = 0;
+      BSTEP_B = 1;
+      BSTEP_B_ = 0;
+      sequence_B = 3;
+   }
+   else if(sequence_B == 3)
+   {
+      BSTEP_A = 0;
+      BSTEP_A_ = 1;
+      BSTEP_B = 1;
+      BSTEP_B_ = 0;
+      sequence_B = 4;
+   }
+   else if(sequence_B == 4)
+   {
+      BSTEP_A = 0;
+      BSTEP_A_ = 1;
+      BSTEP_B = 0;
+      BSTEP_B_ = 0;
+      sequence_B = 5;
+   }
+   else if(sequence_B == 5)
+   {
+      BSTEP_A = 0;
+      BSTEP_A_ = 1;
+      BSTEP_B = 0;
+      BSTEP_B_ = 1;
+      sequence_B = 6;
+   }
+   else if(sequence_B == 6)
+   {
+      BSTEP_A = 0;
+      BSTEP_A_ = 0;
+      BSTEP_B = 0;
+      BSTEP_B_ = 1;  
+      sequence_B = 7;
+   }
+   else
+   {
+      BSTEP_A = 1;
+      BSTEP_A_ = 0;
+      BSTEP_B = 0;
+      BSTEP_B_ = 1;
+      sequence_B = 0;
+   }
+
+}
+
+void B_CCW()
+{
+   if(sequence_B == 7)
+   {
+      BSTEP_A = 1;
+      BSTEP_A_ = 0;
+      BSTEP_B = 0;
+      BSTEP_B_ = 1;
+      sequence_B = 6;
+   }
+   else if(sequence_B == 6)
+   {
+      BSTEP_A = 0;
+      BSTEP_A_ = 0;
+      BSTEP_B = 0;
+      BSTEP_B_ = 1;
+      sequence_B = 5;
+   }
+   else if(sequence_B == 5)
+   {
+      BSTEP_A = 0;
+      BSTEP_A_ = 1;
+      BSTEP_B = 0;
+      BSTEP_B_ = 1;
+      sequence_B = 4;
+   }
+   else if(sequence_B == 4)
+   {
+      BSTEP_A = 0;
+      BSTEP_A_ = 1;
+      BSTEP_B = 0;
+      BSTEP_B_ = 0;
+      sequence_B = 3;
+   }
+   else if(sequence_B == 3)
+   {
+      BSTEP_A = 0;
+      BSTEP_A_ = 1;
+      BSTEP_B = 1;
+      BSTEP_B_ = 0;
+      sequence_B = 2;
+   }
+   else if(sequence_B == 2)
+   {
+      BSTEP_A = 0;
+      BSTEP_A_ = 0;
+      BSTEP_B = 1;
+      BSTEP_B_ = 0;
+      sequence_B = 1;
+   }
+   else if(sequence_B == 1)
+   {
+      BSTEP_A = 1;
+      BSTEP_A_ = 0;
+      BSTEP_B = 1;
+      BSTEP_B_ = 0;
+      sequence_B = 0;
+   }
+   else
+   {
+      BSTEP_A = 1;
+      BSTEP_A_ = 0;
+      BSTEP_B = 0;
+      BSTEP_B_ = 0;
+      sequence_B = 7;
+   }      
+}
+
+void C_CW()
+{
+  if(sequence_C == 0)
+   {
+      CSTEP_A = 1;
+      CSTEP_A_ = 0;
+      CSTEP_B = 0;
+      CSTEP_B_ = 0;
+      sequence_C = 1;
+   }
+   else if(sequence_C == 1)
+   {
+      CSTEP_A = 1;
+      CSTEP_A_ = 0;
+      CSTEP_B = 1;
+      CSTEP_B_ = 0;
+      sequence_C = 2;
+   }
+   else if(sequence_C == 2)
+   {
+      CSTEP_A = 0;
+      CSTEP_A_ = 0;
+      CSTEP_B = 1;
+      CSTEP_B_ = 0;
+      sequence_C = 3;
+   }
+   else if(sequence_C == 3)
+   {
+      CSTEP_A = 0;
+      CSTEP_A_ = 1;
+      CSTEP_B = 1;
+      CSTEP_B_ = 0;
+      sequence_C = 4;
+   }
+   else if(sequence_C == 4)
+   {
+      CSTEP_A = 0;
+      CSTEP_A_ = 1;
+      CSTEP_B = 0;
+      CSTEP_B_ = 0;
+      sequence_C = 5;
+   }
+   else if(sequence_C == 5)
+   {
+      CSTEP_A = 0;
+      CSTEP_A_ = 1;
+      CSTEP_B = 0;
+      CSTEP_B_ = 1;
+      sequence_C = 6;
+   }
+   else if(sequence_C == 6)
+   {
+      CSTEP_A = 0;
+      CSTEP_A_ = 0;
+      CSTEP_B = 0;
+      CSTEP_B_ = 1;  
+      sequence_C = 7;
+   }
+   else
+   {
+      CSTEP_A = 1;
+      CSTEP_A_ = 0;
+      CSTEP_B = 0;
+      CSTEP_B_ = 1;
+      sequence_C = 0;
+   }
+
+}
+
+void C_CCW()
+{
+   if(sequence_C == 7)
+   {
+      CSTEP_A = 1;
+      CSTEP_A_ = 0;
+      CSTEP_B = 0;
+      CSTEP_B_ = 1;
+      sequence_C = 6;
+   }
+   else if(sequence_C == 6)
+   {
+      CSTEP_A = 0;
+      CSTEP_A_ = 0;
+      CSTEP_B = 0;
+      CSTEP_B_ = 1;
+      sequence_C = 5;
+   }
+   else if(sequence_C == 5)
+   {
+      CSTEP_A = 0;
+      CSTEP_A_ = 1;
+      CSTEP_B = 0;
+      CSTEP_B_ = 1;
+      sequence_C = 4;
+   }
+   else if(sequence_C == 4)
+   {
+      CSTEP_A = 0;
+      CSTEP_A_ = 1;
+      CSTEP_B = 0;
+      CSTEP_B_ = 0;
+      sequence_C = 3;
+   }
+   else if(sequence_C == 3)
+   {
+      CSTEP_A = 0;
+      CSTEP_A_ = 1;
+      CSTEP_B = 1;
+      CSTEP_B_ = 0;
+      sequence_C = 2;
+   }
+   else if(sequence_C == 2)
+   {
+      CSTEP_A = 0;
+      CSTEP_A_ = 0;
+      CSTEP_B = 1;
+      CSTEP_B_ = 0;
+      sequence_C = 1;
+   }
+   else if(sequence_C == 1)
+   {
+      CSTEP_A = 1;
+      CSTEP_A_ = 0;
+      CSTEP_B = 1;
+      CSTEP_B_ = 0;
+      sequence_C = 0;
+   }
+   else
+   {
+      CSTEP_A = 1;
+      CSTEP_A_ = 0;
+      CSTEP_B = 0;
+      CSTEP_B_ = 0;
+      sequence_C = 7;
+   }      
+}
+
+void ABC_degree()
+{
+   while(aa <= a_d || bb <= b_d || cc <= c_d)
+   {
+      if(aa <= a_d && A_DIR == 0) A_CW();
+      else if(aa <= a_d && A_DIR == 1) A_CCW();
+      else;
+      if(bb <= b_d && B_DIR == 0) B_CW();
+      else if(bb <= b_d && B_DIR == 1) B_CCW();
+      else;
+      if(cc <= c_d && C_DIR == 0) C_CW();
+      else if(cc <= c_d && C_DIR == 1) C_CCW();
+      else;
+      delay_us(800);
+      if(aa <= a_d) aa++;
+      if(bb <= b_d) bb++; 
+      if(cc <= c_d) cc++;
+
+   }
+   aa = 0;
+   bb = 0;
+   cc = 0;
+}
+void step_motor_degree()
+{
+   if(a == 1)
+   {
+      ABC_degree();
+      a = 0;
+   }
+}
+
+void servo_180()
+{
+   Servo_PWM = 1; //180
+   delay_us(600);
+   Servo_PWM = 0;
+   delay_us(19400);
+}
+void servo_0()
+{
+   Servo_PWM = 1; // 0
+   delay_us(2000);
+   Servo_PWM = 0;
+   delay_us(18000);
+}
+void servo_send()
+{
+   
+   if(servo == 1)
+   {
+      servo_180();
+      servo_cnt++;     
+   }
+   else if(servo == 2)
+   {
+      servo_0();
+      servo_cnt++;
+   }
+   else {}
+   
+}
+void send_error_1()
+{
+   if(send_error == 1)
+   {
+      value_cnt = 0;
+      send_string(send_err);
+      delay_us(1);
+      TXREG1 = 0x0A;
+      memset(packet, 0, sizeof(packet));
+      send_error = 0;
+   }
+}
+int check_sum_function()
+{
+   int16 checksum = 0;
+   int _checksum = (int)packet[16];
+   for(int x = 0; x < 15; x++)
+   {
+      checksum = checksum + (int)packet[x];
+   }
+   int16 check = (checksum + _checksum)&0xFF;
+   if(check == 0)return 0;
+   else return 1;
+}
+
+void send_1()
+{
+   if(send == 1)
+   {
+      checksum_check = check_sum_function();
+      if(checksum_check == 0)
+      {
+         a = 1;
+         A_degree = (A_num_1000 - '0')*1000+(A_num_100 - '0')*100+(A_num_10 - '0')*10+(A_num_1 - '0');
+         B_degree = (B_num_1000 - '0')*1000+(B_num_100 - '0')*100+(B_num_10 - '0')*10+(B_num_1 - '0');
+         C_degree = (C_num_1000 - '0')*1000+(C_num_100 - '0')*100+(C_num_10 - '0')*10+(C_num_1 - '0');
+         a_d = (double)A_degree / 0.9;
+         b_d = (double)B_degree / 0.9;
+         c_d = (double)C_degree / 0.9;
+   //!      sprintf(txt, "%ld", B_degree);
+   //!      send_string(txt);
+         delay_us(1);
+         TXREG1 = 0x0A;
+         memset(packet, 0, sizeof(packet));
+         send = 0;
+      }
+      else 
+      {
+         send_error = 1;
+         send = 0;
+      }
+   }
+}
+
+void main()
+{
+   PORTA = 0x00;
+   PORTB = 0x00;
+   TRISA = 0x00;
+   TRISB = 0x00;
+   INTCON = 0B11000000;
+   PIE5 = 0B00000001;
+//!   T4CON = 0B00000100;
+//!   PR4 = 200;
+   ASTEP_A = 1;
+   ASTEP_A_ = 0;
+   ASTEP_B = 0;
+   ASTEP_B_ = 0;
+   BSTEP_A = 1;
+   BSTEP_A_ = 0;
+   BSTEP_B = 0;
+   BSTEP_B_ = 0;
+   CSTEP_A = 1;
+   CSTEP_A_ = 0;
+   CSTEP_B = 0;
+   CSTEP_B_ = 0;
+   Transmit_Recive_settings();
+   while(true)
+   {
+     servo_send();
+     send_1();
+     send_error_1();
+     step_motor_degree();
+     if(servo_cnt == 5) 
+     {
+        servo = 0;
+        servo_cnt = 0;
+        memset(packet, 0, sizeof(packet));
+        value_cnt = 0;
+     }
+     
+   }
+
+}
+
+//!#INT_TIMER4
+//!void xxxx()
+//!{
+//!   overf++;
+//!}
+
+#INT_RDA
+void RDA()
+{
+  // TXREG1 = RCREG1;
+   value_cnt++;  
+ 
+   if(value_cnt == 1)
+   {
+      packet[0] = RCREG1;
+      if(packet[0] == '+')
+      {
+         A_DIR = 0;
+      }
+      else if(packet[0] == '-')
+      {
+         A_DIR = 1;
+      }
+      else if(packet[0] == 'U')
+      {
+         servo = 1;
+      }
+      else if(packet[0] == 'I')
+      {
+         servo = 2;
+      }
+      else
+      {
+         value_cnt = 0;
+         send_error = 1;
+      }
+      RC1IF = 0;
+   }
+   if(value_cnt == 2)
+   {
+      packet[1] = RCREG1;
+      A_num_1000 = packet[1];
+      RC1IF = 0;
+   }
+   if(value_cnt == 3)
+   {
+      packet[2] = RCREG1;
+      A_num_100 = packet[2];
+      RC1IF = 0;
+   }
+   if(value_cnt == 4)
+   {
+      packet[3] = RCREG1;
+      A_num_10 = packet[3];
+      RC1IF = 0;
+   }
+   if(value_cnt == 5)
+   {
+      packet[4] = RCREG1;
+      A_num_1 = packet[4];
+      RC1IF = 0;
+   }
+   if(value_cnt == 6)
+   {
+      packet[5] = RCREG1;
+      if(packet[5] == '+')
+      {
+         B_DIR = 0;
+      }
+      else if(packet[5] == '-')
+      {
+         B_DIR = 1;
+      }
+      else
+      {
+         value_cnt = 0;
+         send_error = 1;
+      }
+      RC1IF = 0;
+   }
+   if(value_cnt == 7)
+   {
+      packet[6] = RCREG1;
+      B_num_1000 = packet[6];
+      RC1IF = 0;
+   }
+   if(value_cnt == 8)
+   {
+      packet[7] = RCREG1;
+      B_num_100 = packet[7];
+      RC1IF = 0;
+   }
+   if(value_cnt == 9)
+   {
+      packet[8] = RCREG1;
+      B_num_10 = packet[8];
+      RC1IF = 0;
+   }
+   if(value_cnt == 10)
+   {
+      packet[9] = RCREG1;
+      B_num_1 = packet[9];
+      RC1IF = 0;     
+   }
+   if(value_cnt == 11)
+   {
+      packet[10] = RCREG1;
+      if(packet[10] == '+')
+      {
+         C_DIR = 0;
+      }
+      else if(packet[10] == '-')
+      {
+         C_DIR = 1;
+      }
+      else
+      {
+         value_cnt = 0;
+         send_error = 1;
+      }
+      RC1IF = 0;
+   }
+   if(value_cnt == 12)
+   {
+      packet[11] = RCREG1;
+      C_num_1000 = packet[11];
+      RC1IF = 0;
+   }
+   if(value_cnt == 13)
+   {
+      packet[12] = RCREG1;
+      C_num_100 = packet[12];
+      RC1IF = 0;
+   }
+   if(value_cnt == 14)
+   {
+      packet[13] = RCREG1;
+      C_num_10 = packet[13];
+      RC1IF = 0;
+   }
+   if(value_cnt == 15)
+   {
+      packet[14] = RCREG1;
+      C_num_1 = packet[14];
+      RC1IF = 0;     
+   }
+   if(value_cnt == 16)
+   {
+      packet[15] = RCREG1;
+      if(packet[15] != 0x3A) //0x3A = :
+      {
+         send_error = 1;
+      }
+      RC1IF = 0;     
+   }
+   if(value_cnt == 17)
+   {
+      packet[16] = RCREG1;
+      RC1IF = 0;     
+   }
+   
+   if(value_cnt == 18)
+   {
+      packet[17] = RCREG1;
+      if(packet[17] == 0x45) //0x45 = 'E'
+      {
+         send = 1;           
+      }
+      else if(packet[17] != 0x45)
+      {
+         send_error = 1;
+      }
+      else
+      {
+         send_error = 1;
+      }
+      value_cnt = 0;
+      RC1IF = 0;
+   }
+ 
+}
+
+
+
+
